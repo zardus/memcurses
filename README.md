@@ -24,6 +24,7 @@ Or maybe the other way around...
 If I have some time (or someone wants something to do), the current plans are:
 
 - `Enter`-to-follow pointers
+- /proc/pid/maps view (to switch to other pages)
 - struct view
 - memory/struct saving (to flat file, or to python file)
 - gdb support
