@@ -4,7 +4,7 @@ class MemError(Exception): pass
 
 class Page(object):
     def __init__(self, line):
-        m = re.match(r'^([0-9A-Fa-f]+)-([0-9A-Fa-f]+) ([-r])([-w])([-x])([ps]) ([0-9A-Fa-f]+) ([^ ]*) ([^ ]*) *([^ ]*)$', line)
+        m = re.match(r'^([0-9A-Fa-f]+)-([0-9A-Fa-f]+) ([-r])([-w])([-x])([ps]) ([0-9A-Fa-f]+) ([^ ]*) ([^ ]*) *(.*)$', line)
         self.start = int(m.group(1), 16)
         self.end = int(m.group(2), 16)
         self.r = m.group(3) == 'r'
