@@ -40,6 +40,7 @@ class MemViewAddr(MemView):
 	def __init__(self, window, memcurses, addr, word_size=None):
 		MemView.__init__(self, window, memcurses)
 		self._addr = addr
+		self._selected = addr
 		self._word_size = struct.calcsize("P") if word_size is None else word_size
 
 	@property
@@ -61,6 +62,14 @@ class MemViewAddr(MemView):
 	def mem_contents(self):
 		return self._mc._mem.read(self._addr, self.displayable_amount)
 
+	@property
+	def min_display_addr(self):
+		return self._addr
+
+	@property
+	def max_display_addr(self):
+		return self.min_display_addr + self.displayable_amount
+
 	def _points_to(self, data, offset):
 		s = struct.calcsize("P")
 		if offset + s > len(data):
@@ -80,23 +89,18 @@ class MemViewAddr(MemView):
 		for y in range(self.max_rows):
 			cur_x = 0
 			for _ in range(self.words_per_row):
-				points_to = self._points_to(data, i)
-				if points_to == MemViewAddr._POINTS_US: new_color = curses.color_pair(4)
-				elif points_to == MemViewAddr._POINTS_OTHER: new_color = curses.color_pair(5)
-				else: new_color = None
-
-				if new_color != cur_color:
-					if cur_color is not None: self._window.attroff(cur_color)
-					if new_color is not None: self._window.attron(new_color)
-					cur_color = new_color
+				byte_type = self._points_to(data, i)
 
 				for w in range(self._word_size):
-					self._window.addstr(y, cur_x+w*3, data[i].encode('hex'))
+					if self._addr + i == self._selected: color = curses.color_pair(2)
+					elif byte_type == MemViewAddr._POINTS_US: color = curses.color_pair(4)
+					elif byte_type == MemViewAddr._POINTS_OTHER: color = curses.color_pair(5)
+					else: color = curses.color_pair(0)
+
+					self._window.addstr(y, cur_x+w*3, data[i].encode('hex'), color)
 					i += 1
 
 				cur_x += 3*self._word_size + 1
-
-		if cur_color is not None: self._window.attroff(cur_color)
 
 	def draw(self):
 		self._window.clear()
@@ -105,7 +109,7 @@ class MemViewAddr(MemView):
 
 	def input(self):
 		c = self._window.getch()
-		open('keys', 'a').write(str(c) + '\n')
+		selection_moved = False
 
 		if c == curses.KEY_DOWN:
 			self._addr += self.words_per_row * self._word_size
@@ -115,13 +119,41 @@ class MemViewAddr(MemView):
 			self._addr -= self._word_size
 		elif c == curses.KEY_RIGHT:
 			self._addr += self._word_size
-		if c == curses.KEY_NPAGE:
+		elif c == curses.KEY_NPAGE:
 			self._addr += self.words_per_row * self._word_size * self.height/2
 		elif c == curses.KEY_PPAGE:
 			self._addr -= self.words_per_row * self._word_size * self.height/2
+		elif c in ( ord('W'), ord('w')):
+			self._selected -= self.words_per_row * self._word_size
+			selection_moved = True
+		elif c in ( ord('S'), ord('s')):
+			self._selected += self.words_per_row * self._word_size
+			selection_moved = True
+		elif c == ord('d'):
+			self._selected += 1
+			selection_moved = True
+		elif c == ord('a'):
+			self._selected -= 1
+			selection_moved = True
+		elif c == ord('D'):
+			self._selected += self._word_size
+			selection_moved = True
+		elif c == ord('A'):
+			self._selected -= self._word_size
+			selection_moved = True
 		else:
 			curses.ungetch(c)
 			return False
+
+		if self._selected > self.max_display_addr and selection_moved:
+			self._addr += self.words_per_row * self._word_size
+		elif self._selected < self.min_display_addr and selection_moved:
+			self._addr -= self.words_per_row * self._word_size
+		elif not selection_moved:
+			while self._selected > self.max_display_addr:
+				self._selected -= self.words_per_row * self._word_size
+			while self._selected < self.min_display_addr:
+				self._selected += self.words_per_row * self._word_size
 
 class MemViewHelp(MemView):
 	def draw(self):
