@@ -7,6 +7,7 @@ class MemView(object):
 		self._mc = memcurses
 		self._x = 0
 		self._y = 0
+		self._closed = False
 
 		self._window.nodelay(True)
 		self._window.keypad(True)
@@ -29,6 +30,9 @@ class MemView(object):
 	def input(self):
 		raise NotImplementedError()
 
+	def close(self):
+		self._closed = True
+
 class MemViewAddr(MemView):
 	_POINTS_US = 1
 	_POINTS_OTHER = 2
@@ -41,7 +45,7 @@ class MemViewAddr(MemView):
 	@property
 	def words_per_row(self):
 		row_words = self.width / (self._word_size*3 + 1)
-		if self.width - row_words * (self._word_size*3 + 1) >= 12:
+		if self.width - row_words * (self._word_size*3 + 1) >= self._word_size*3:
 			row_words += 1
 		return row_words
 
@@ -116,7 +120,8 @@ class MemViewAddr(MemView):
 		elif c == curses.KEY_PPAGE:
 			self._addr -= self.words_per_row * self._word_size * self.height/2
 		else:
-			return c
+			curses.ungetch(c)
+			return False
 
 class MemViewHelp(MemView):
 	def draw(self):
