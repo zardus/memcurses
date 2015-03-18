@@ -1,5 +1,6 @@
 import curses
 import struct
+import string
 
 class MemView(object):
 	def __init__(self, window, memcurses):
@@ -49,6 +50,77 @@ class MemViewAddr(MemView):
 		self._shown = [ ]
 		self._shown_colors = [ ]
 
+	#
+	# Various properties to help with laying stuff out
+	#
+
+	@property
+	def words_per_row(self):
+		total_width = self.width - self.first_mem_column
+
+		per_byte_ratio = float(self.word_char_cost) / self._word_size
+		bytes_per_row = int(total_width / per_byte_ratio)
+		words_per_row = bytes_per_row / self._word_size
+
+		return words_per_row
+
+	@property
+	def word_separator_size(self):
+		return 1 if self._word_size > 1 else 0
+
+	@property
+	def word_char_cost(self):
+		# 2 bytes for hex-encoded, 1 for byte separator, 1 for ascii display, and maybe 1 for word separator
+		return 4 * self._word_size + self.word_separator_size
+
+	@property
+	def hex_word_size(self):
+		# 2 bytes for hex-encoded, 1 for byte separator, and maybe 1 for word separator
+		return 3 * self._word_size + self.word_separator_size
+
+	@property
+	def max_rows(self):
+		return self.height
+
+	@property
+	def displayable_amount(self):
+		return self.max_rows * self.words_per_row * self._word_size
+
+	@property
+	def min_display_addr(self):
+		return self._addr
+
+	@property
+	def max_display_addr(self):
+		return self.min_display_addr + self.displayable_amount
+
+	@property
+	def first_mem_column(self): #pylint:disable=no-self-use
+		return struct.calcsize("P")*2 + 2
+
+	@property
+	def first_ascii_column(self):
+		return self.first_mem_column + self.hex_word_size*self.words_per_row
+
+	@property
+	def bytes_per_row(self):
+		return self.words_per_row * self._word_size
+
+	#
+	# Functionality used in drawing
+	#
+
+	def _points_to(self, offset):
+		s = struct.calcsize("P")
+		if offset + s > len(self._data):
+			return False
+
+		container = self._mc._mem.container(struct.unpack("P", self._data[offset:offset+s])[0], maps=self._mc._maps)
+
+		if container is None: return None
+		elif container.start <= self._addr+offset and container.end > self._addr+offset: return MemViewAddr._POINTS_US
+		else: return MemViewAddr._POINTS_OTHER
+
 	def _refresh_data(self):
 		self._data = self._mc._mem.read(self._addr, self.displayable_amount)
 		self._data_colors = [ ]
@@ -71,46 +143,15 @@ class MemViewAddr(MemView):
 				self._data_colors.append(curses.color_pair(0))
 			same_color_bytes -= 1
 
-	@property
-	def words_per_row(self):
-		total_width = self.width - self.first_mem_column
+	def _display_ascii(self):
+		for i in range(len(self._data)):
+			row = i / self.bytes_per_row
+			column = self.first_ascii_column + i % self.bytes_per_row
 
-		row_words = total_width / (self._word_size*3 + 1)
-		if total_width - row_words * (self._word_size*3 + 1) >= self._word_size*3:
-			row_words += 1
+			a = ord(self._data[i]) if self._data[i] in string.printable else curses.ACS_BULLET #pylint:disable=no-member
+			color = self._data_colors[i]
 
-		return row_words
-
-	@property
-	def max_rows(self):
-		return self.height
-
-	@property
-	def displayable_amount(self):
-		return self.max_rows * self.words_per_row * self._word_size
-
-	@property
-	def min_display_addr(self):
-		return self._addr
-
-	@property
-	def max_display_addr(self):
-		return self.min_display_addr + self.displayable_amount
-
-	@property
-	def first_mem_column(self): #pylint:disable=no-self-use
-		return struct.calcsize("P")*2 + 2
-
-	def _points_to(self, offset):
-		s = struct.calcsize("P")
-		if offset + s > len(self._data):
-			return False
-
-		container = self._mc._mem.container(struct.unpack("P", self._data[offset:offset+s])[0], maps=self._mc._maps)
-
-		if container is None: return None
-		elif container.start <= self._addr+offset and container.end > self._addr+offset: return MemViewAddr._POINTS_US
-		else: return MemViewAddr._POINTS_OTHER
+			self._window.addch(row, column, a, color)
 
 	def _display_byte(self, i):
 		byte = self._data[i]
@@ -118,8 +159,8 @@ class MemViewAddr(MemView):
 
 		row = i / (self.words_per_row * self._word_size)
 		word_in_column = i % (self.words_per_row * self._word_size)
-		interword_spacing = float(self._word_size*3+1)/(self._word_size*3)
-		column = int(interword_spacing * (word_in_column * 3))
+		interword_spacing_ratio = float(self.hex_word_size)/(self._word_size*3)
+		column = int(interword_spacing_ratio * (word_in_column * 3))
 
 		self._window.addstr(row, self.first_mem_column + column, byte.encode('hex'), color)
 
@@ -131,15 +172,21 @@ class MemViewAddr(MemView):
 		self._shown_colors = self._data_colors
 
 	def _display_addrs(self):
+		s = struct.calcsize("P")
 		for i in range(self.height):
 			addr = self._addr + i*self.words_per_row*self._word_size
-			self._window.addstr(i, 0, ("%x" % addr).zfill(self._word_size*2))
+			self._window.addstr(i, 0, ("%x" % addr).zfill(s*2))
+
+	#
+	# View API
+	#
 
 	def draw(self):
 		#self._window.clear()
 		self._refresh_data()
 		self._display_addrs()
 		self._display_mem()
+		self._display_ascii()
 		self._window.noutrefresh()
 
 	def input(self):
@@ -176,6 +223,9 @@ class MemViewAddr(MemView):
 		elif c == ord('A'):
 			self._selected -= self._word_size
 			selection_moved = True
+		elif c in [ 0x31, 0x32, 0x33, 0x34, 0x35, 0x36, 0x37, 0x38 ]:
+			self._word_size = c - 0x30
+			self._window.clear()
 		else:
 			curses.ungetch(c)
 			return False

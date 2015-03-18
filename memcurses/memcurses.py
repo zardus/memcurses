@@ -35,6 +35,8 @@ class MemCurses(object):
                 return False
             elif c == 27:
                 self.views[-1].close()
+            elif c == curses.KEY_RESIZE:
+                self._screen.clear()
 
         return True
 
