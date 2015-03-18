@@ -43,11 +43,42 @@ class MemViewAddr(MemView):
 		self._selected = addr
 		self._word_size = struct.calcsize("P") if word_size is None else word_size
 
+		self._data = [ ]
+		self._data_colors = [ ]
+
+		self._shown = [ ]
+		self._shown_colors = [ ]
+
+	def _refresh_data(self):
+		self._data = self._mc._mem.read(self._addr, self.displayable_amount)
+		self._data_colors = [ ]
+
+		same_color_bytes = 0
+		for i in range(len(self._data)):
+			byte_type = self._points_to(i)
+
+			if self._addr + i == self._selected:
+				self._data_colors.append(curses.color_pair(2))
+			elif same_color_bytes > 0:
+				self._data_colors.append(self._data_colors[-1])
+			elif byte_type == MemViewAddr._POINTS_US:
+				self._data_colors.append(curses.color_pair(4))
+				same_color_bytes = 8
+			elif byte_type == MemViewAddr._POINTS_OTHER:
+				self._data_colors.append(curses.color_pair(5))
+				same_color_bytes = 8
+			else:
+				self._data_colors.append(curses.color_pair(0))
+			same_color_bytes -= 1
+
 	@property
 	def words_per_row(self):
-		row_words = self.width / (self._word_size*3 + 1)
-		if self.width - row_words * (self._word_size*3 + 1) >= self._word_size*3:
+		total_width = self.width - self.first_mem_column
+
+		row_words = total_width / (self._word_size*3 + 1)
+		if total_width - row_words * (self._word_size*3 + 1) >= self._word_size*3:
 			row_words += 1
+
 		return row_words
 
 	@property
@@ -59,10 +90,6 @@ class MemViewAddr(MemView):
 		return self.max_rows * self.words_per_row * self._word_size
 
 	@property
-	def mem_contents(self):
-		return self._mc._mem.read(self._addr, self.displayable_amount)
-
-	@property
 	def min_display_addr(self):
 		return self._addr
 
@@ -70,41 +97,49 @@ class MemViewAddr(MemView):
 	def max_display_addr(self):
 		return self.min_display_addr + self.displayable_amount
 
-	def _points_to(self, data, offset):
+	@property
+	def first_mem_column(self): #pylint:disable=no-self-use
+		return struct.calcsize("P")*2 + 2
+
+	def _points_to(self, offset):
 		s = struct.calcsize("P")
-		if offset + s > len(data):
+		if offset + s > len(self._data):
 			return False
-		container = self._mc._mem.container(struct.unpack("P", data[offset:offset+s])[0], maps=self._mc._maps)
-		if container is None:
-			return None
-		elif container.start <= self._addr+offset and container.end > self._addr+offset:
-			return MemViewAddr._POINTS_US
-		else:
-			return MemViewAddr._POINTS_OTHER
 
-	def _display_mem(self, data):
-		cur_color = None
+		container = self._mc._mem.container(struct.unpack("P", self._data[offset:offset+s])[0], maps=self._mc._maps)
 
-		i = 0
-		for y in range(self.max_rows):
-			cur_x = 0
-			for _ in range(self.words_per_row):
-				byte_type = self._points_to(data, i)
+		if container is None: return None
+		elif container.start <= self._addr+offset and container.end > self._addr+offset: return MemViewAddr._POINTS_US
+		else: return MemViewAddr._POINTS_OTHER
 
-				for w in range(self._word_size):
-					if self._addr + i == self._selected: color = curses.color_pair(2)
-					elif byte_type == MemViewAddr._POINTS_US: color = curses.color_pair(4)
-					elif byte_type == MemViewAddr._POINTS_OTHER: color = curses.color_pair(5)
-					else: color = curses.color_pair(0)
+	def _display_byte(self, i):
+		byte = self._data[i]
+		color = self._data_colors[i]
 
-					self._window.addstr(y, cur_x+w*3, data[i].encode('hex'), color)
-					i += 1
+		row = i / (self.words_per_row * self._word_size)
+		word_in_column = i % (self.words_per_row * self._word_size)
+		interword_spacing = float(self._word_size*3+1)/(self._word_size*3)
+		column = int(interword_spacing * (word_in_column * 3))
 
-				cur_x += 3*self._word_size + 1
+		self._window.addstr(row, self.first_mem_column + column, byte.encode('hex'), color)
+
+	def _display_mem(self):
+		for i in range(len(self._data)):
+			self._display_byte(i)
+
+		self._shown = self._data
+		self._shown_colors = self._data_colors
+
+	def _display_addrs(self):
+		for i in range(self.height):
+			addr = self._addr + i*self.words_per_row*self._word_size
+			self._window.addstr(i, 0, ("%x" % addr).zfill(self._word_size*2))
 
 	def draw(self):
-		self._window.clear()
-		self._display_mem(self.mem_contents)
+		#self._window.clear()
+		self._refresh_data()
+		self._display_addrs()
+		self._display_mem()
 		self._window.noutrefresh()
 
 	def input(self):
