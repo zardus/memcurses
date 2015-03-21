@@ -66,17 +66,20 @@ class MemViewAddr(MemView):
 
 	@property
 	def word_separator_size(self):
-		return 1 if self._word_size > 1 else 0
+		wss = 1 if self._word_size > 1 else 0
+		return wss
 
 	@property
 	def word_char_cost(self):
 		# 2 bytes for hex-encoded, 1 for byte separator, 1 for ascii display, and maybe 1 for word separator
-		return 4 * self._word_size + self.word_separator_size
+		wcc = 4 * self._word_size + self.word_separator_size
+		return wcc
 
 	@property
 	def hex_word_size(self):
 		# 2 bytes for hex-encoded, 1 for byte separator, and maybe 1 for word separator
-		return 3 * self._word_size + self.word_separator_size
+		hws =  3 * self._word_size + self.word_separator_size
+		return hws
 
 	@property
 	def max_rows(self):
@@ -84,7 +87,8 @@ class MemViewAddr(MemView):
 
 	@property
 	def displayable_amount(self):
-		return self.max_rows * self.words_per_row * self._word_size
+		da = self.max_rows * self.words_per_row * self._word_size
+		return da
 
 	@property
 	def min_display_addr(self):
@@ -104,7 +108,8 @@ class MemViewAddr(MemView):
 
 	@property
 	def bytes_per_row(self):
-		return self.words_per_row * self._word_size
+		bpr = self.words_per_row * self._word_size
+		return bpr
 
 	#
 	# Functionality used in drawing
@@ -148,10 +153,13 @@ class MemViewAddr(MemView):
 			row = i / self.bytes_per_row
 			column = self.first_ascii_column + i % self.bytes_per_row
 
-			a = ord(self._data[i]) if self._data[i] in string.printable else curses.ACS_BULLET #pylint:disable=no-member
+			to_display = string.digits + string.letters + ' '
+			a = ord(self._data[i]) if self._data[i] in to_display else curses.ACS_BULLET #pylint:disable=no-member
 			color = self._data_colors[i]
 
-			self._window.addch(row, column, a, color)
+			#l.debug('(%d,%d) of (%d,%d) is %r', row, column, self.height, self.width, repr(a))
+			try: self._window.addch(row, column, a, color)
+			except curses.error: pass
 
 	def _display_byte(self, i):
 		byte = self._data[i]
