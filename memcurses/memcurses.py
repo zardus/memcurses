@@ -16,7 +16,7 @@ class MemCurses(object):
 
         self._maps = None
 
-        self.views = [ MemViewAddr(self._screen.subwin(self.height, self.width, 0, 0), self, start_addr) ]
+        self.views = [ MemViewHex(self._screen.subwin(self.height, self.width, 0, 0), self, start_addr) ]
 
         self._screen.nodelay(True)
         self._screen.keypad(True)
@@ -90,4 +90,5 @@ class MemCurses(object):
             self.cleanup()
             self.draw()
 
-from .memview import MemViewAddr, MemView
+from .memview import MemView
+from .views import MemViewHex
