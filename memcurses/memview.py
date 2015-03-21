@@ -231,6 +231,10 @@ class MemViewAddr(MemView):
 			self._addr -= self._word_size
 		elif c == curses.KEY_RIGHT:
 			self._addr += self._word_size
+		elif c == ord('['):
+			self._addr -= 1
+		elif c == ord(']'):
+			self._addr += 1
 		elif c == curses.KEY_NPAGE:
 			self._addr += self.words_per_row * self._word_size * self.height/2
 		elif c == curses.KEY_PPAGE:
