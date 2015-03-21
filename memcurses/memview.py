@@ -2,6 +2,10 @@ import curses
 import struct
 import string
 
+import logging
+l = logging.getLogger('memcurses.memview')
+#l.setLevel(logging.DEBUG)
+
 class MemView(object):
 	def __init__(self, window, memcurses):
 		self._window = window
@@ -191,16 +195,34 @@ class MemViewAddr(MemView):
 
 	def draw(self):
 		#self._window.clear()
+
+		l.debug("About to draw")
+		l.debug("height: %d", self.height)
+		l.debug("width: %d", self.width)
+		l.debug("words per row: %d", self.words_per_row)
+		l.debug("word separator size: %d", self.word_separator_size)
+		l.debug("word char cost: %d", self.word_char_cost)
+		l.debug("hex word size: %d", self.hex_word_size)
+		l.debug("displayable amount: %d", self.displayable_amount)
+		l.debug("bytes per row: %d", self.bytes_per_row)
+
+		l.debug("refreshing data")
 		self._refresh_data()
+		l.debug("displaying addresses")
 		self._display_addrs()
+		l.debug("displaying hex memory")
 		self._display_mem()
+		l.debug("displaying ascii memory")
 		self._display_ascii()
 		self._window.noutrefresh()
 
 	def input(self):
-		c = self._window.getch()
 		selection_moved = False
 
+		old_selection = self._selected
+		old_addr = self._addr
+
+		c = self._window.getch()
 		if c == curses.KEY_DOWN:
 			self._addr += self.words_per_row * self._word_size
 		elif c == curses.KEY_UP:
@@ -248,9 +270,49 @@ class MemViewAddr(MemView):
 			while self._selected < self.min_display_addr:
 				self._selected += self.words_per_row * self._word_size
 
-class MemViewHelp(MemView):
+		if self._mc._mem.container(self._addr, maps=self._mc._maps) is None:
+			err = MemViewMessage(curses.newwin(1, 1), self._mc, "Error", [ "Memory at address 0x%x is not mapped." % self._addr ])
+			self._selected = old_selection
+			self._addr = old_addr
+			return err
+
+
+class MemViewMessage(MemView):
+	def __init__(self, window, memcurses, subject, lines):
+		MemView.__init__(self, window, memcurses)
+
+		win_width = min(memcurses.width, max(max(len(line) for line in lines), len(subject)) + 4)
+		win_height = min(memcurses.height, len(lines) + 6)
+
+		x = (memcurses.width - win_width) / 2
+		y = (memcurses.height - win_height) / 2
+
+		l.debug("Message window going to %dx%d+%d+%d", win_height, win_width, y, x)
+		window.mvwin(y, x)
+		window.resize(win_height, win_width)
+
+		self._subject = subject
+		self._lines = lines
+
+	def _draw_line(self, y, line, centered=False):
+		w = min(len(line), self.width)
+
+		if centered: x = (self.width - w) / 2
+		else: x = 2
+
+		self._window.addstr(y, x, line[:self.width-x-2])
+
 	def draw(self):
-		pass
+		self._window.erase()
+		self._window.border(0)
+
+		self._draw_line(2, self._subject, centered=True)
+		for y,line in enumerate(self._lines[:self.height - 4]):
+			self._draw_line(y+4, line)
+
+		self._window.noutrefresh()
 
 	def input(self):
-		pass
+		c = self._window.getch()
+		l.debug("%r ignoring key %r", self, c)
+		return None

@@ -1,7 +1,9 @@
 #!/usr/bin/env python
 
-import time
 import curses
+import logging
+l = logging.getLogger('memcurses.memcurses')
+l.setLevel('DEBUG')
 
 from .mem import Mem
 
@@ -10,12 +12,22 @@ class MemCurses(object):
         self._mem = Mem(pid=pid)
         self._screen = screen
         self._start_addr = start_addr
-        self._height, self._width = self._screen.getmaxyx()
         self._x, self._y = (0, 0)
 
         self._maps = None
 
-        self.views = [ MemViewAddr(self._screen.subwin(self._height, self._width, 0, 0), self, start_addr) ]
+        self.views = [ MemViewAddr(self._screen.subwin(self.height, self.width, 0, 0), self, start_addr) ]
+
+        self._screen.nodelay(True)
+        self._screen.keypad(True)
+
+    @property
+    def height(self):
+        return self._screen.getmaxyx()[0]
+
+    @property
+    def width(self):
+        return self._screen.getmaxyx()[1]
 
     def draw(self):
         #self._screen.clear()
@@ -25,18 +37,37 @@ class MemCurses(object):
 
     def input(self):
         v = None
+
+        l.debug("memcurses input")
+        c = self._screen.getch()
+        if c == ord('q'):
+            l.debug("... quitting")
+            return False
+        elif c == ord('x'):
+            l.debug("... closing %r", self.views[-1])
+            self.views[-1].close()
+            self._screen.clear()
+        elif c == curses.KEY_RESIZE:
+            l.debug("... window resized")
+            self._screen.clear()
+        else:
+            l.debug("... ungetting %r", c)
+            curses.ungetch(c)
+
         for v in reversed(self.views):
+            l.debug("Input to %r", v)
             r = v.input()
             if r is None:
+                l.debug("... it handled it")
+                break
+            elif isinstance(r, MemView):
+                l.debug("... it created %r", r)
+                self.views.append(r)
+                self._screen.clear()
                 break
         else:
             c = self._screen.getch()
-            if c == ord('q'):
-                return False
-            elif c == ord('x'):
-                self.views[-1].close()
-            elif c == curses.KEY_RESIZE:
-                self._screen.clear()
+            l.debug("Discarding key %r", c)
 
         return True
 
@@ -57,7 +88,6 @@ class MemCurses(object):
             if not self.input():
                 return
             self.cleanup()
-            time.sleep(0.1)
             self.draw()
 
-from .memview import MemViewAddr
+from .memview import MemViewAddr, MemView

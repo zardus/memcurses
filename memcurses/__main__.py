@@ -1,6 +1,9 @@
 import curses
 from . import MemCurses
 
+import logging
+logging.basicConfig(format='%(levelname)-7s | %(asctime)-23s | %(name)-8s | %(message)s', level=logging.WARNING, filename='/dev/shm/memcurses.log')
+
 def main(screen):
     import sys
     pid = sys.argv[1]
