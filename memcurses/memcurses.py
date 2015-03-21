@@ -31,9 +31,9 @@ class MemCurses(object):
                 break
         else:
             c = self._screen.getch()
-            if c == ord('q') or c == 27 and v is None:
+            if c == ord('q'):
                 return False
-            elif c == 27:
+            elif c == ord('x'):
                 self.views[-1].close()
             elif c == curses.KEY_RESIZE:
                 self._screen.clear()
