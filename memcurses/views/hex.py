@@ -12,8 +12,8 @@ class MemViewHex(MemView):
 	_POINTS_US = 1
 	_POINTS_OTHER = 2
 
-	def __init__(self, window, memcurses, addr, word_size=None):
-		MemView.__init__(self, window, memcurses)
+	def __init__(self, memcurses, addr, window=None, word_size=None):
+		MemView.__init__(self, memcurses, window=window)
 		self._addr = addr
 		self._selected = addr
 		self._word_size = struct.calcsize("P") if word_size is None else word_size
@@ -164,7 +164,7 @@ class MemViewHex(MemView):
 	#
 
 	def draw(self):
-		#self._window.clear()
+		self._window.erase()
 
 		l.debug("About to draw")
 		l.debug("height: %d", self.height)
@@ -245,7 +245,7 @@ class MemViewHex(MemView):
 				self._selected += self.words_per_row * self._word_size
 
 		if self._mc._mem.container(self._addr, maps=self._mc._maps) is None:
-			err = MemViewMessage(curses.newwin(1, 1), self._mc, "Error", [ "Memory at address 0x%x is not mapped." % self._addr ])
+			err = MemViewMessage(self._mc, "Error", [ "Memory at address 0x%x is not mapped." % self._addr ])
 			self._selected = old_selection
 			self._addr = old_addr
 			return err

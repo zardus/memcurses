@@ -8,18 +8,20 @@ l.setLevel('DEBUG')
 from .mem import Mem
 
 class MemCurses(object):
-    def __init__(self, screen, pid=None, start_addr=None):
+    def __init__(self, screen, pid=None):
         self._mem = Mem(pid=pid)
         self._screen = screen
-        self._start_addr = start_addr
-        self._x, self._y = (0, 0)
 
-        self._maps = None
-
-        self.views = [ MemViewHex(self._screen.subwin(self.height, self.width, 0, 0), self, start_addr) ]
+        l.info("MemCurses initialized. Screen is %dx%d", self.height, self.width)
+        self._maps = self._mem.maps
+        self.views = [ MemViewSelect(self, "Region Selection", [ str(m) for m in self._maps ], self._create_hex_view) ]
 
         self._screen.nodelay(True)
         self._screen.keypad(True)
+
+    def _create_hex_view(self, selector, line, idx): #pylint:disable=unused-argument
+        self._screen.clear()
+        self.views.append(MemViewHex(self, self._maps[idx].start))
 
     @property
     def height(self):
@@ -30,7 +32,7 @@ class MemCurses(object):
         return self._screen.getmaxyx()[1]
 
     def draw(self):
-        #self._screen.clear()
+        #self._screen.erase()
         for v in self.views:
             v.draw()
         curses.doupdate()
@@ -91,4 +93,4 @@ class MemCurses(object):
             self.draw()
 
 from .memview import MemView
-from .views import MemViewHex
+from .views import MemViewSelect, MemViewHex

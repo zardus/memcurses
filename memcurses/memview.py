@@ -3,8 +3,13 @@ l = logging.getLogger('memcurses.memview')
 #l.setLevel(logging.DEBUG)
 
 class MemView(object):
-	def __init__(self, window, memcurses):
-		self._window = window
+	def __init__(self, memcurses, window=None):
+		if window is not None:
+			self._window = window
+		else:
+			self._window = memcurses._screen.subwin(memcurses.height, memcurses.width, 0, 0)
+			self._window.clear()
+
 		self._mc = memcurses
 		self._x = 0
 		self._y = 0

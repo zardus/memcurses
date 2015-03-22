@@ -1,4 +1,5 @@
 import re
+import struct
 
 class MemError(Exception): pass
 
@@ -20,6 +21,20 @@ class Page(object):
     @property
     def size(self):
         return self.end - self.start
+
+    @property
+    def description(self):
+        return (self.path if self.path else "MAP_ANON") + ((" +0x%x" % self.offset) if self.offset else '')
+
+    @property
+    def perms(self):
+        return ('r' if self.r else '-') + ('w' if self.w else '-') + ('x' if self.x else '-')
+
+    def __str__(self):
+        word_size = struct.calcsize("P")
+        r_str = "0x%%0%dx - 0x%%0%dx %%s %%s" % (word_size*2, word_size*2)
+        open('/tmp/wtf', 'w').write(r_str+'\n')
+        return r_str % (self.start, self.end, self.perms, self.description)
 
 class Mem(object):
     def __init__(self, pid=None):
