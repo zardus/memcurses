@@ -211,9 +211,9 @@ class MemViewHex(MemView):
 		elif c == ord(']'):
 			self._addr += 1
 		elif c == curses.KEY_NPAGE:
-			self._addr += self.words_per_row * self._word_size * self.height/2
+			self._addr += self.bytes_per_row * (self.height/2)
 		elif c == curses.KEY_PPAGE:
-			self._addr -= self.words_per_row * self._word_size * self.height/2
+			self._addr -= self.bytes_per_row * (self.height/2)
 		elif c in ( ord('W'), ord('w')):
 			self._selected -= self.words_per_row * self._word_size
 			selection_moved = True
