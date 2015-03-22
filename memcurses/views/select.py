@@ -14,9 +14,9 @@ class MemViewSelect(MemViewMessage):
 
 	def _draw_line(self, y, line, centered=None):
 		if line in self._lines and self._lines.index(line) == self._selected:
-			self._window.attron(curses.color_pair(2))
+			self._window.attron(curses.A_STANDOUT)
 			MemViewMessage._draw_line(self, y, line, centered=centered)
-			self._window.attroff(curses.color_pair(2))
+			self._window.attroff(curses.A_STANDOUT)
 		else:
 			MemViewMessage._draw_line(self, y, line, centered=centered)
 

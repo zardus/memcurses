@@ -22,8 +22,7 @@ class MemViewHex(MemView):
 		self._data = [ ]
 		self._data_colors = [ ]
 
-		self._shown = [ ]
-		self._shown_colors = [ ]
+		self._selections = [ ]
 
 	#
 	# Various properties to help with laying stuff out
@@ -106,21 +105,24 @@ class MemViewHex(MemView):
 		self._data_colors = [ ]
 
 		same_color_bytes = 0
+		last_color = None
 		for i in range(len(self._data)):
 			byte_type = self._points_to(i)
 
-			if self._addr + i == self._selected:
-				self._data_colors.append(curses.color_pair(2))
-			elif same_color_bytes > 0:
-				self._data_colors.append(self._data_colors[-1])
+			if same_color_bytes > 0:
+				self._data_colors.append(last_color)
 			elif byte_type == MemViewHex._POINTS_US:
-				self._data_colors.append(curses.color_pair(4))
+				last_color = curses.color_pair(4)
+				self._data_colors.append(last_color)
 				same_color_bytes = 8
 			elif byte_type == MemViewHex._POINTS_OTHER:
-				self._data_colors.append(curses.color_pair(5))
+				last_color = curses.color_pair(5)
+				self._data_colors.append(last_color)
 				same_color_bytes = 8
 			else:
-				self._data_colors.append(curses.color_pair(0))
+				last_color = curses.color_pair(0)
+				self._data_colors.append(last_color)
+
 			same_color_bytes -= 1
 
 	def _display_ascii(self):
@@ -145,14 +147,15 @@ class MemViewHex(MemView):
 		interword_spacing_ratio = float(self.hex_word_size)/(self._word_size*3)
 		column = int(interword_spacing_ratio * (word_in_column * 3))
 
+		if self._addr + i == self._selected:
+			#self._data_colors[-1] = curses.color_pair(2)
+			color |= curses.A_STANDOUT
+
 		self._window.addstr(row, self.first_mem_column + column, byte.encode('hex'), color)
 
 	def _display_mem(self):
 		for i in range(len(self._data)):
 			self._display_byte(i)
-
-		self._shown = self._data
-		self._shown_colors = self._data_colors
 
 	def _display_addrs(self):
 		s = struct.calcsize("P")
@@ -189,6 +192,7 @@ class MemViewHex(MemView):
 
 	def input(self):
 		selection_moved = False
+		selection_jumped = False
 
 		old_selection = self._selected
 		old_addr = self._addr
@@ -214,11 +218,17 @@ class MemViewHex(MemView):
 			self._addr += self.bytes_per_row * (self.height/2)
 		elif c == curses.KEY_PPAGE:
 			self._addr -= self.bytes_per_row * (self.height/2)
-		elif c in ( ord('W'), ord('w')):
-			self._selected -= self.words_per_row * self._word_size
+		elif c == ord('w'):
+			self._selected -= self.bytes_per_row
 			selection_moved = True
-		elif c in ( ord('S'), ord('s')):
-			self._selected += self.words_per_row * self._word_size
+		elif c == ord('W'):
+			self._selected -= self.bytes_per_row * (self.height/2)
+			selection_moved = True
+		elif c == ord('s'):
+			self._selected += self.bytes_per_row
+			selection_moved = True
+		elif c == ord('S'):
+			self._selected += self.bytes_per_row * (self.height/2)
 			selection_moved = True
 		elif c == ord('d'):
 			self._selected += 1
@@ -235,22 +245,33 @@ class MemViewHex(MemView):
 		elif c in [ 0x31, 0x32, 0x33, 0x34, 0x35, 0x36, 0x37, 0x38 ]:
 			self._word_size = c - 0x30
 			self._window.clear()
-		else:
-			curses.ungetch(c)
-			return False
+		elif c == ord('\n'):
+			ptr = self._data[self._selected - self._addr:self._selected - self._addr + self._mc._mem.word_size]
+			if len(ptr) == self._mc._mem.word_size:
+				self._selected = struct.unpack("P", ptr)[0]
+				self._selections.append(old_selection)
+				selection_jumped = True
+		elif c == 27:
+			if len(self._selections) != 0:
+				self._selected = self._selections.pop()
+				selection_jumped = True
 
-		if self._selected > self.max_display_addr and selection_moved:
-			self._addr += self.words_per_row * self._word_size
-		elif self._selected < self.min_display_addr and selection_moved:
-			self._addr -= self.words_per_row * self._word_size
-		elif not selection_moved:
-			while self._selected > self.max_display_addr:
-				self._selected -= self.words_per_row * self._word_size
-			while self._selected < self.min_display_addr:
-				self._selected += self.words_per_row * self._word_size
+		selected_row = (self._selected - self._addr) / self.bytes_per_row
+		old_selected_column = (self._selected - old_addr) % self.bytes_per_row
+
+		if selection_moved and selected_row < 0:
+			self._addr += selected_row * self.bytes_per_row
+		elif selection_moved and selected_row >= self.height:
+			self._addr += (selected_row-self.height+1) * self.bytes_per_row
+		elif selection_jumped and (selected_row < -1 or selected_row > self.height):
+			self._addr = self._selected
+		elif not selection_moved and selected_row < 0:
+			self._selected = self._addr + old_selected_column
+		elif not selection_moved and selected_row >= self.height:
+			self._selected = self._addr + self.bytes_per_row*(self.height-1) + old_selected_column
 
 		if self._mc._mem.container(self._addr, maps=self._mc._maps) is None:
-			err = MemViewMessage(self._mc, "Error", [ "Memory at address 0x%x is not mapped." % self._addr ])
+			err = MemViewMessage(self._mc, "Error", [ "Memory at address 0x%x is not mapped (trying to display selection 0x%x)." % (self._addr, self._selected) ])
 			self._selected = old_selection
 			self._addr = old_addr
 			return err

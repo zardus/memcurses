@@ -46,13 +46,16 @@ class MemCurses(object):
         if c == ord('q'):
             l.debug("... quitting")
             return False
-        elif c == ord('x'):
+        elif c == ord('X'):
             l.debug("... closing %r", self.views[-1])
             self.views[-1].close()
             self._screen.clear()
         elif c == curses.KEY_RESIZE:
             l.debug("... window resized")
             self._screen.clear()
+        elif c == curses.KEY_F2:
+            self._screen.clear()
+            self.views.append(MemViewDebug(self))
         else:
             l.debug("... ungetting %r", c)
             curses.ungetch(c)
@@ -68,9 +71,6 @@ class MemCurses(object):
                 self.views.append(r)
                 self._screen.clear()
                 break
-        else:
-            c = self._screen.getch()
-            l.debug("Discarding key %r", c)
 
         return True
 
@@ -98,4 +98,4 @@ class MemCurses(object):
             self.draw()
 
 from .memview import MemView
-from .views import MemViewSelect, MemViewHex
+from .views import MemViewSelect, MemViewHex, MemViewDebug

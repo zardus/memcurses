@@ -53,4 +53,3 @@ class MemViewMessage(MemView):
 			self.close()
 		else:
 			l.debug("%r ignoring key %r", self, c)
-		return None

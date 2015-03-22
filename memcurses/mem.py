@@ -51,6 +51,10 @@ class Mem(object):
             raise MemError("out of bounds")
 
     @property
+    def word_size(self): #pylint:disable=no-self-use
+        return struct.calcsize("P")
+
+    @property
     def maps(self):
         return [ Page(line.strip()) for line in open("/proc/%s/maps" % self._pid) ]
 
