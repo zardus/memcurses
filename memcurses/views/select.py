@@ -20,6 +20,12 @@ class MemViewSelect(MemViewMessage):
 		else:
 			MemViewMessage._draw_line(self, y, line, centered=centered)
 
+	@property
+	def display_lines(self):
+		f = max(self._selected - self.max_lines/2, 0)
+		f = min(len(self._lines) - self.max_lines, f)
+		return self._lines[f:f+self.max_lines]
+
 	def input(self):
 		c = self._window.getch()
 
@@ -27,5 +33,9 @@ class MemViewSelect(MemViewMessage):
 			self._selected = min(len(self._lines) - 1, self._selected + 1)
 		elif c == curses.KEY_UP:
 			self._selected = max(0, self._selected - 1)
+		elif c == curses.KEY_PPAGE:
+			self._selected = max(0, self._selected - self.height/2)
+		elif c == curses.KEY_NPAGE:
+			self._selected = min(len(self._lines) - 1, self._selected + self.height/2)
 		elif c == ord('\n'):
 			self._callback(self, self._lines[self._selected], self._selected)
