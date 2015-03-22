@@ -39,8 +39,9 @@ class MemViewHex(MemView):
 		return words_per_row
 
 	@property
-	def word_separator_size(self):
-		wss = 1 if self._word_size > 1 else 0
+	def word_separator_size(self): #pylint:disable=no-self-use
+		#wss = 1 if self._word_size > 1 else 0
+		wss = 0
 		return wss
 
 	@property
@@ -78,7 +79,7 @@ class MemViewHex(MemView):
 
 	@property
 	def first_ascii_column(self):
-		return self.first_mem_column + self.hex_word_size*self.words_per_row
+		return self.first_mem_column + self.hex_word_size*self.words_per_row + 1
 
 	@property
 	def bytes_per_row(self):
@@ -152,6 +153,8 @@ class MemViewHex(MemView):
 			color |= curses.A_STANDOUT
 
 		self._window.addstr(row, self.first_mem_column + column, byte.encode('hex'), color)
+		if (self._addr + i + 1) % self._word_size == 0:
+			self._window.addch(row, self.first_mem_column + column + 2, curses.ACS_VLINE) #pylint:disable=no-member
 
 	def _display_mem(self):
 		for i in range(len(self._data)):
