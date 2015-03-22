@@ -21,7 +21,7 @@ class MemCurses(object):
 
     def _create_hex_view(self, selector, line, idx): #pylint:disable=unused-argument
         self._screen.clear()
-        self.views.append(MemViewHex(self, self._maps[idx].start))
+        self.views.append(MemViewHex(self, self._maps[idx]))
 
     @property
     def height(self):
@@ -33,6 +33,7 @@ class MemCurses(object):
 
     def draw(self):
         #self._screen.erase()
+        l.debug("Drawing %d views", len(self.views))
         for v in self.views:
             v.draw()
         curses.doupdate()
@@ -75,8 +76,12 @@ class MemCurses(object):
 
     def cleanup(self):
         new_views = [ v for v in self.views if not v._closed ]
+        #closed_views = [ v for v in self.views if v._closed ]
+        #for v in closed_views:
+        #   v._window.clear()
         if len(new_views) != len(self.views):
             self._screen.clear()
+
         self.views = new_views
 
     def interact(self):

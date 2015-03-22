@@ -12,10 +12,11 @@ class MemViewHex(MemView):
 	_POINTS_US = 1
 	_POINTS_OTHER = 2
 
-	def __init__(self, memcurses, addr, window=None, word_size=None):
+	def __init__(self, memcurses, mapping, addr=None, window=None, word_size=None):
 		MemView.__init__(self, memcurses, window=window)
-		self._addr = addr
-		self._selected = addr
+		self._mapping = mapping
+		self._addr = mapping.start if addr is None else addr
+		self._selected = self._addr
 		self._word_size = struct.calcsize("P") if word_size is None else word_size
 
 		self._data = [ ]
@@ -201,6 +202,10 @@ class MemViewHex(MemView):
 			self._addr -= self._word_size
 		elif c == curses.KEY_RIGHT:
 			self._addr += self._word_size
+		elif c == curses.KEY_HOME:
+			self._addr = self._mapping.start
+		elif c == curses.KEY_END:
+			self._addr = self._mapping.end - self.bytes_per_row*self.height
 		elif c == ord('['):
 			self._addr -= 1
 		elif c == ord(']'):
