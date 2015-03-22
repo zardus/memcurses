@@ -153,7 +153,7 @@ class MemViewHex(MemView):
 			color |= curses.A_STANDOUT
 
 		self._window.addstr(row, self.first_mem_column + column, byte.encode('hex'), color)
-		if (self._addr + i + 1) % self._word_size == 0:
+		if (self._addr + i + 1) % self._word_size == 0 and self._word_size != 1:
 			self._window.addch(row, self.first_mem_column + column + 2, curses.ACS_VLINE) #pylint:disable=no-member
 
 	def _display_mem(self):
