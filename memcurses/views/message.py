@@ -49,5 +49,8 @@ class MemViewMessage(MemView):
 
 	def input(self):
 		c = self._window.getch()
-		l.debug("%r ignoring key %r", self, c)
+		if c == ord('\n'):
+			self.close()
+		else:
+			l.debug("%r ignoring key %r", self, c)
 		return None
